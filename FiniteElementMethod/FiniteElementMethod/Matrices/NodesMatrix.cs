@@ -3,8 +3,9 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
+using FiniteElementMethod.Additions;
 
-namespace FiniteElementMethod.Additions
+namespace FiniteElementMethod.Matrices
 {
     public class NodesMatrix
     {
@@ -12,27 +13,27 @@ namespace FiniteElementMethod.Additions
         private Coordinate2D[][] nodesCoordinate;
 
         // PROPERTIES
-        public int NodesOnMAmount { get; }
-        public int EvenNodesOnNAmount { get; }
-        public int OddNodesOnNAmount { get; }
+        public int NodesOnNAmount { get; }
+        public int EvenNodesOnMAmount { get; }
+        public int OddNodesOnMAmount { get; }
 
         // CONSTRUCTORS
         public NodesMatrix(int n, int m)
         {
-            int NodesOnMAmount = 2 * m + 1;
-            int EvenNodesOnNAmount = 2 * n + 1;
-            int OddNodesOnNAmount = n + 1;
+            NodesOnNAmount = 2 * n + 1;
+            EvenNodesOnMAmount = 2 * m + 1;
+            OddNodesOnMAmount = m + 1;
 
-            nodesCoordinate = new Coordinate2D[NodesOnMAmount][];
-            for (int i = 0; i < NodesOnMAmount; ++i) 
+            nodesCoordinate = new Coordinate2D[NodesOnNAmount][];
+            for (int i = 0; i < NodesOnNAmount; ++i) 
             {
                 if (SpecialData.IsEven(i))
                 {
-                    nodesCoordinate[i] = new Coordinate2D[EvenNodesOnNAmount];
+                    nodesCoordinate[i] = new Coordinate2D[EvenNodesOnMAmount];
                 }
                 else
                 {
-                    nodesCoordinate[i] = new Coordinate2D[OddNodesOnNAmount];
+                    nodesCoordinate[i] = new Coordinate2D[OddNodesOnMAmount];
                 }
             }
         }
@@ -52,15 +53,15 @@ namespace FiniteElementMethod.Additions
             }
         }
 
-        public Coordinate2D this[int first, int second]
+        public Coordinate2D this[int row, int column]
         {
             get
             {
-                return nodesCoordinate[first][second];
+                return nodesCoordinate[row][column];
             }
             set
             {
-                nodesCoordinate[first][second] = value;
+                nodesCoordinate[row][column] = value;
             }
         }
 
@@ -71,10 +72,20 @@ namespace FiniteElementMethod.Additions
             {
                 for (int j = 0; j < nodesCoordinate[i].Length; ++j)
                 {
-                    Console.Write($"({nodesCoordinate[i][j].X}, {nodesCoordinate[i][j].Y}) ");
+                    Console.Write($"{"(" + nodesCoordinate[i][j].X + ", " + nodesCoordinate[i][j].Y + ")",-15}");
                 }
                 Console.WriteLine();
             }
+        }
+
+        public int CreateGlobalIndex(int n, int m)
+        {
+            int globalIndex = 0;
+            for (int i = 0; i < n; ++i) 
+            {
+                globalIndex += nodesCoordinate[i].Length;
+            }
+            return globalIndex + m;
         }
 
         private Pair CreateIndicesOnNAndM(int index)
@@ -83,7 +94,7 @@ namespace FiniteElementMethod.Additions
             int i = 0;
             while (index >= nodesCoordinate[i].Length) 
             {
-                index -= nodesCoordinate.GetLength(i);
+                index -= nodesCoordinate[i].Length;
                 ++i;
             }
             return new Pair { First = i, Second = index };

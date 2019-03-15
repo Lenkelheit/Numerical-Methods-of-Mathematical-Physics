@@ -41,8 +41,8 @@
     <Reference Include="System.Xml" />
   </ItemGroup>
   <ItemGroup>
-    <Compile Include="Additions\FiniteElement.cs" />
-    <Compile Include="Additions\NodesMatrix.cs" />
+    <Compile Include="Matrices\Matrix.cs" />
+    <Compile Include="Matrices\NodesMatrix.cs" />
     <Compile Include="Additions\Pair.cs" />
     <Compile Include="Additions\SpecialData.cs" />
     <Compile Include="Additions\Coordinate2D.cs" />
