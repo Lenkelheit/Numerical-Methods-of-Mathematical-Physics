@@ -52,7 +52,7 @@ namespace FiniteElementMethod
             int mAmount = 0;
             // fills matrix of nodes
             // on M plane
-            for (double i = nPartOnX < mPartOnY ? PointOnX.Y : PointOnY.X; i <= (nPartOnX < mPartOnY ? PointOnY.Y : PointOnX.X); i += nPartOnX < mPartOnY ? hOnY : hOnX)
+            for (double i = nPartOnX < mPartOnY ? PointOnX.Y : PointOnY.X; i < (nPartOnX < mPartOnY ? PointOnY.Y + hOnY / 2 : PointOnX.X + hOnX / 2); i += nPartOnX < mPartOnY ? hOnY : hOnX) 
             {
                 int nAmount = 0;
                 // on N plane
