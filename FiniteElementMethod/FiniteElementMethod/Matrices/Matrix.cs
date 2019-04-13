@@ -9,7 +9,7 @@ namespace FiniteElementMethod.Matrices
     public class Matrix
     {
         // FIELDS
-        private int[,] matrix;
+        private double[,] matrix;
 
         // PROPERTIES
         public int RowsAmount { get; }
@@ -20,11 +20,11 @@ namespace FiniteElementMethod.Matrices
         {
             RowsAmount = n;
             ColumnsAmount = m;
-            matrix = new int[RowsAmount, ColumnsAmount];
+            matrix = new double[RowsAmount, ColumnsAmount];
         }
 
         // INDEXERS
-        public int this[int row, int column]
+        public double this[int row, int column]
         {
             get
             {
@@ -47,6 +47,43 @@ namespace FiniteElementMethod.Matrices
                 }
                 Console.WriteLine();
             }
+        }
+
+        public static Matrix operator +(Matrix first, Matrix second)
+        {
+            if (first.RowsAmount == second.RowsAmount && first.ColumnsAmount == second.ColumnsAmount) 
+            {
+                Matrix sum = new Matrix(first.RowsAmount, first.ColumnsAmount);
+                for (int i = 0; i < first.RowsAmount; ++i)
+                {
+                    for (int j = 0; j < first.ColumnsAmount; ++j)
+                    {
+                        sum[i, j] = first[i, j] + second[i, j];
+                    }
+                }
+                return sum;
+            }
+            throw new ArgumentException("Different quantity of rows and columns is in matrices!");
+        }
+
+        public static Matrix operator *(Matrix first, Matrix second)
+        {
+            if (first.ColumnsAmount == second.RowsAmount)
+            {
+                Matrix product = new Matrix(first.RowsAmount, second.ColumnsAmount);
+                for (int i = 0; i < first.RowsAmount; ++i)
+                {
+                    for (int j = 0; j < second.ColumnsAmount; ++j)
+                    {
+                        for (int k = 0; k < first.ColumnsAmount; ++k) 
+                        {
+                            product.matrix[i, j] += first.matrix[i, k] * second.matrix[k, j];
+                        }
+                    }
+                }
+                return product;
+            }
+            throw new ArgumentException("There is different quantity of columns in first matrix and rows in second matrix!");
         }
     }
 }

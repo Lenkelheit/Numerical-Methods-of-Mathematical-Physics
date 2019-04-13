@@ -41,6 +41,7 @@
     <Reference Include="System.Xml" />
   </ItemGroup>
   <ItemGroup>
+    <Compile Include="Additions\DerivativeOnXi.cs" />
     <Compile Include="Matrices\Matrix.cs" />
     <Compile Include="Matrices\NodesMatrix.cs" />
     <Compile Include="Additions\Pair.cs" />
