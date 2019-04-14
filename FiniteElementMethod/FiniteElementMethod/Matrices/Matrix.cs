@@ -43,12 +43,41 @@ namespace FiniteElementMethod.Matrices
             {
                 for (int j = 0; j < ColumnsAmount; ++j) 
                 {
-                    Console.Write($"{matrix[i, j],-4}");
+                    Console.Write($"{matrix[i, j],-20}");
                 }
                 Console.WriteLine();
             }
+            Console.WriteLine();
         }
 
+        public Matrix Clone()
+        {
+            Matrix cloneMatrix = new Matrix(RowsAmount, ColumnsAmount);
+            for (int i = 0; i < RowsAmount; ++i)
+            {
+                for (int j = 0; j < ColumnsAmount; ++j)
+                {
+                    cloneMatrix[i, j] = this[i, j];
+                }
+            }
+            return cloneMatrix;
+        }
+
+        public Matrix GetTransposeMatrix()
+        {
+            Matrix transposeMatrix = new Matrix(ColumnsAmount, RowsAmount);
+
+            for (int i = 0; i < RowsAmount; ++i)
+            {
+                for (int j = 0; j < ColumnsAmount; ++j)
+                {
+                    transposeMatrix[j, i] = this[i, j];
+                }
+            }
+            return transposeMatrix;
+        }
+
+        // OPERATORS
         public static Matrix operator +(Matrix first, Matrix second)
         {
             if (first.RowsAmount == second.RowsAmount && first.ColumnsAmount == second.ColumnsAmount) 
@@ -84,6 +113,19 @@ namespace FiniteElementMethod.Matrices
                 return product;
             }
             throw new ArgumentException("There is different quantity of columns in first matrix and rows in second matrix!");
+        }
+
+        public static Matrix operator *(Matrix matrix, double value)
+        {
+            Matrix result = matrix.Clone();
+            for (int i = 0; i < result.RowsAmount; ++i)
+            {
+                for (int j = 0; j < result.ColumnsAmount; ++j)
+                {
+                    result[i, j] *= value;
+                }
+            }
+            return result;
         }
     }
 }
