@@ -10,12 +10,16 @@ namespace FiniteElementMethod
 {
     public class CoordinatePlane
     {
-        // PROPERTIES
+        // FIELDS
         #region POINTS
-        public Coordinate2D PointOnX { get; }
-        public Coordinate2D PointOnY { get; }
+        private Coordinate2D PointOnX;
+        private Coordinate2D PointOnY;
         #endregion
 
+        private CoordinateSystemConfig coordinateSystemConfig;
+        private CylindricalShellConfig shellConfig;
+
+        // PROPERTIES
         #region MATRICES
         public NodesMatrix NodesMatrix { get; private set; }
         public Matrix ConnectivityMatrix { get; private set; }
@@ -23,14 +27,19 @@ namespace FiniteElementMethod
         #endregion
 
         // CONSTRUCTORS
-        public CoordinatePlane(Coordinate2D pointOnX, Coordinate2D pointOnY)
+        public CoordinatePlane(CoordinateSystemConfig coordinateSystemConfig, CylindricalShellConfig shellConfig)
         {
-            this.PointOnX = pointOnX;
-            this.PointOnY = pointOnY;
+            this.PointOnX = new Coordinate2D { X = coordinateSystemConfig.B, Y = coordinateSystemConfig.C };
+            this.PointOnY = new Coordinate2D { X = coordinateSystemConfig.A, Y = coordinateSystemConfig.D };
+
+            this.coordinateSystemConfig = coordinateSystemConfig;
+            this.shellConfig = shellConfig;
+
+            SplitCoordinatePlane(coordinateSystemConfig.N, coordinateSystemConfig.M);
         }
 
         // METHODS
-        public void SplitCoordinatePlane(int nPartOnX, int mPartOnY)
+        private void SplitCoordinatePlane(int nPartOnX, int mPartOnY)
         {
             CreateNodesMatrix(nPartOnX, mPartOnY);
 
@@ -176,19 +185,132 @@ namespace FiniteElementMethod
             }
         }
 
+        public Matrix CreateMaterialElasticCharacteristicsMatrixBWithE()
+        {
+            double v = shellConfig.V, E = shellConfig.E, h = shellConfig.H;
+
+            Matrix B = new Matrix(SpecialData.B_MATRIX_DIMENSION, SpecialData.B_MATRIX_DIMENSION);
+
+            B[0, 0] = B[1, 1] = B[2, 2] = ((1 - v) * E * h) / ((1 + v) * (1 - 2 * v));
+            B[0, 1] = B[0, 2] = B[1, 0] = B[1, 2] = B[2, 0] = B[2, 1] = (v * E * h) / ((1 + v) * (1 - 2 * v));
+
+            B[3, 3] = B[4, 4] = B[5, 5] = 2 * E * h / (1 + v);
+
+            B[6, 6] = B[7, 7] = ((1 - v) * E * h * h * h) / (12 * (1 + v) * (1 - 2 * v));
+            B[6, 7] = B[7, 6] = (v * E * h * h * h) / (12 * (1 + v) * (1 - 2 * v));
+
+            B[8, 8] = B[9, 9] = B[10, 10] = (2 * E * h * h * h) / (12 * (1 + v));
+            return B;
+        }
+
+        public Matrix CreateDifferentialOperatorMatrixCl(int finiteElementIndex, int nodeIndex, int GausseNodeIndex)
+        {
+            Matrix Cl = new Matrix(11, 6);
+
+            double firstGaussElem = SpecialData.GaussNodeMatrix()[GausseNodeIndex, 0],
+                                    secondGaussElem = SpecialData.GaussNodeMatrix()[GausseNodeIndex, 1],
+                                    R = shellConfig.R,
+                                    k2 = 1 / R;
+
+            Matrix derivativeOnAlpha = DerivativeOfFiOnAlpha(finiteElementIndex, nodeIndex, firstGaussElem, secondGaussElem);
+
+            double d1 = derivativeOnAlpha[0, 0], d2 = derivativeOnAlpha[1, 0], phi = BasicFunctionsFi(nodeIndex, firstGaussElem, secondGaussElem);
+
+            Cl[0, 0] = d1;
+            Cl[1, 1] = d2 / R;
+            Cl[1, 2] = phi / R;
+            Cl[2, 5] = phi;
+            Cl[3, 0] = d2 / (2 * R);
+            Cl[3, 1] = d1 / 2;
+            Cl[4, 2] = d1 / 2;
+            Cl[4, 3] = phi / 2;
+            Cl[5, 1] = -phi / (2 * R);
+            Cl[5, 2] = d2 / (2 * R);
+            Cl[5, 4] = phi / 2;
+            Cl[6, 3] = d1;
+            Cl[7, 4] = d2 / R;
+            Cl[7, 5] = k2 * phi;
+            Cl[8, 1] = d1 / (2 * R);
+            Cl[8, 3] = d2 / (2 * R);
+            Cl[8, 4] = d1 / 2;
+            Cl[9, 5] = d1 / 2;
+            Cl[10, 5] = d2 / (2 * R);
+
+            return Cl;
+        }
+
+        public Matrix CreateGlobalMatrixForGaussNodeIndex(int finiteElementIndex, int gaussNodeIndex)
+        {
+            Matrix BE = CreateMaterialElasticCharacteristicsMatrixBWithE();
+
+            Matrix[] Cl = new Matrix[8];
+
+            for (int nodeIndex = 0; nodeIndex < SpecialData.NODES_NUMBER_IN_FINITE_ELEMENT; ++nodeIndex) 
+            {
+                Cl[nodeIndex] = CreateDifferentialOperatorMatrixCl(finiteElementIndex, nodeIndex, gaussNodeIndex);
+            }
+
+            // 8*8 of 6*6 matrices
+            Matrix[,] matricesForGlobalMatrixForGaussNode = new Matrix[8, 8];
+            for (int i = 0; i < matricesForGlobalMatrixForGaussNode.GetLength(0); ++i)
+            {
+                for (int j = 0; j < matricesForGlobalMatrixForGaussNode.GetLength(1); ++j)
+                {
+                    // 6*6
+                    matricesForGlobalMatrixForGaussNode[i, j] = Cl[i].GetTransposeMatrix() * BE * Cl[j];
+                }
+            }
+
+            // expand to 48*48 matrix
+            Matrix globalMatrixForGaussNode = new Matrix(48, 48);
+            for (int i = 0; i < 8; ++i)
+            {
+                for (int j = 0; j < 8; ++j)
+                {
+                    for (int k1 = 0; k1 < 6; ++k1)
+                    {
+                        for (int k2 = 0; k2 < 6; ++k2)
+                        {
+                            globalMatrixForGaussNode[i * 6 + k1, j * 6 + k2] = matricesForGlobalMatrixForGaussNode[i, j][k1, k2];
+                        }
+                    }
+                }
+            }
+
+            return globalMatrixForGaussNode;
+        }
+
+        public Matrix CreateGlobalMatrix(int finiteElementIndex)
+        {
+            double R = shellConfig.R;
+
+            double[] gaussWeights = SpecialData.GaussWeights();
+            double[,] gaussNodes = SpecialData.GaussNodeMatrix();
+
+            Matrix globalMatrix = new Matrix(48, 48);
+            for (int gaussNodeIndex = 0; gaussNodeIndex < gaussNodes.GetLength(0); ++gaussNodeIndex) // 9
+            {
+                double detJ = GetJacobian(finiteElementIndex, gaussNodes[gaussNodeIndex, 0], gaussNodes[gaussNodeIndex, 1]);
+                double M = gaussWeights[gaussNodeIndex / 3] * gaussWeights[gaussNodeIndex % 3] * detJ * R;
+
+                globalMatrix += CreateGlobalMatrixForGaussNodeIndex(finiteElementIndex, gaussNodeIndex) * M;
+            }
+            return globalMatrix;
+        }
+
         public double BasicFunctionsFi(int nodeIndex, double xi1, double xi2)
         {
             double result = 0;
             switch (nodeIndex)
             {
                 case 0: result = -1.0 / 4 * (1 - xi1) * (1 - xi2) * (1 + xi1 + xi2); break;
-                case 1: result = 1.0 / 2 * (1 - Math.Pow(xi1, 2)) * (1 - xi2); break;
+                case 1: result = 1.0 / 2 * (1 - Math.Pow(xi1, 2)) * (1 - xi2);       break;
                 case 2: result = -1.0 / 4 * (1 + xi1) * (1 - xi2) * (1 - xi1 + xi2); break;
-                case 3: result = 1.0 / 2 * (1 - Math.Pow(xi2, 2)) * (1 + xi1); break;
+                case 3: result = 1.0 / 2 * (1 - Math.Pow(xi2, 2)) * (1 + xi1);       break;
                 case 4: result = -1.0 / 4 * (1 + xi1) * (1 + xi2) * (1 - xi1 - xi2); break;
-                case 5: result = 1.0 / 2 * (1 - Math.Pow(xi1, 2)) * (1 + xi2); break;
+                case 5: result = 1.0 / 2 * (1 - Math.Pow(xi1, 2)) * (1 + xi2);       break;
                 case 6: result = -1.0 / 4 * (1 - xi1) * (1 + xi2) * (1 + xi1 - xi2); break;
-                case 7: result = 1.0 / 2 * (1 - Math.Pow(xi2, 2)) * (1 - xi1); break;
+                case 7: result = 1.0 / 2 * (1 - Math.Pow(xi2, 2)) * (1 - xi1);       break;
             }
             return result;
         }
@@ -255,15 +377,8 @@ namespace FiniteElementMethod
             }
 
             double reverseJacobian = Math.Pow(GetJacobian(finiteElementIndex, xi1, xi2), -1);
-            for (int i = 0; i < result.RowsAmount; ++i)
-            {
-                for (int j = 0; j < result.ColumnsAmount; ++j) 
-                {
-                    result[i, j] *= reverseJacobian;
-                }
-            }
 
-            return result;
+            return result * reverseJacobian;
         }
 
         public Matrix DerivativeOfFiOnAlpha(int finiteElementIndex, int nodeIndex, double xi1, double xi2)

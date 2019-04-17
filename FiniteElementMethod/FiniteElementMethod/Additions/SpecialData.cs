@@ -13,7 +13,35 @@ namespace FiniteElementMethod.Additions
 
         public const int NODES_NUMBER_ON_EDGE_IN_FINITE_ELEMENT = 3;
 
+        public const int B_MATRIX_DIMENSION = 11;
+
         // METHODS
+        public static double[,] GaussNodeMatrix()
+        {
+            return new double[9, 2]
+            {
+                { -0.77459,  -0.77459 },
+                {  0,        -0.77459 },
+                {  0.77459,  -0.77459 },
+                { -0.77459,   0       },
+                {  0,         0       },
+                {  0.77459,   0       },
+                { -0.77459,   0.77459 },
+                {  0,         0.77459 },
+                {  0.77459,   0.77459 }
+            };
+        }
+
+        public static double[] GaussWeights()
+        {
+            return new double[3]
+            {
+                0.5555555555,
+                0.8888888888,
+                0.5555555555
+            };
+        }
+
         public static bool IsEven(int number)
         {
             return number % 2 == 0;
@@ -25,6 +53,7 @@ namespace FiniteElementMethod.Additions
             {
                 Console.WriteLine($"{i}: {array[i]}");
             }
+            Console.WriteLine();
         }
     }
 }

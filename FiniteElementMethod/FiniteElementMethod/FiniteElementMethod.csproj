@@ -42,6 +42,8 @@
   </ItemGroup>
   <ItemGroup>
     <Compile Include="Additions\DerivativeOnXi.cs" />
+    <Compile Include="CoordinateSystemConfig.cs" />
+    <Compile Include="CylindricalShellConfig.cs" />
     <Compile Include="Matrices\Matrix.cs" />
     <Compile Include="Matrices\NodesMatrix.cs" />
     <Compile Include="Additions\Pair.cs" />
