@@ -166,6 +166,7 @@ namespace FiniteElementMethod
 
             for (int i = 0; i < nodesAmount; ++i) 
             {
+                // middle = 0
                 // left side = 1
                 // right side = 4
                 // top side = 2
@@ -183,6 +184,98 @@ namespace FiniteElementMethod
 
                 if (NodesMatrix[i].Y == PointOnX.Y) BoundaryConditionMatrix[i] += 7;
             }
+        }
+
+        public double BasicFunctionsFi(int nodeIndex, double xi1, double xi2)
+        {
+            double result = 0;
+            switch (nodeIndex)
+            {
+                case 0: result = -1.0 / 4 * (1 - xi1) * (1 - xi2) * (1 + xi1 + xi2); break;
+                case 1: result = 1.0 / 2 * (1 - Math.Pow(xi1, 2)) * (1 - xi2); break;
+                case 2: result = -1.0 / 4 * (1 + xi1) * (1 - xi2) * (1 - xi1 + xi2); break;
+                case 3: result = 1.0 / 2 * (1 - Math.Pow(xi2, 2)) * (1 + xi1); break;
+                case 4: result = -1.0 / 4 * (1 + xi1) * (1 + xi2) * (1 - xi1 - xi2); break;
+                case 5: result = 1.0 / 2 * (1 - Math.Pow(xi1, 2)) * (1 + xi2); break;
+                case 6: result = -1.0 / 4 * (1 - xi1) * (1 + xi2) * (1 + xi1 - xi2); break;
+                case 7: result = 1.0 / 2 * (1 - Math.Pow(xi2, 2)) * (1 - xi1); break;
+            }
+            return result;
+        }
+
+        public double DerivativeOfFiOnXi(int nodeIndex, double xi1, double xi2, DerivativeOnXi derivativeOnXi)
+        {
+            double result = 0;
+            switch (nodeIndex)
+            {
+                case 0: result = derivativeOnXi == DerivativeOnXi.DerivativeOnXi1 ? 1.0 / 4 * (1 - xi2) * (2 * xi1 + xi2) : 1.0 / 4 * (1 - xi1) * (xi1 + 2 * xi2); break;
+                case 1: result = derivativeOnXi == DerivativeOnXi.DerivativeOnXi1 ? xi1 * (xi2 - 1) : 1.0 / 2 * (Math.Pow(xi1, 2) - 1); break;
+                case 2: result = derivativeOnXi == DerivativeOnXi.DerivativeOnXi1 ? 1.0 / 4 * (1 - xi2) * (2 * xi1 - xi2) : 1.0 / 4 * (1 + xi1) * (2 * xi2 - xi1); break;
+                case 3: result = derivativeOnXi == DerivativeOnXi.DerivativeOnXi1 ? 1.0 / 2 * (1 - Math.Pow(xi2, 2)) : -xi2 * (1 + xi1); break;
+                case 4: result = derivativeOnXi == DerivativeOnXi.DerivativeOnXi1 ? 1.0 / 4 * (1 + xi2) * (2 * xi1 + xi2) : 1.0 / 4 * (1 + xi1) * (xi1 + 2 * xi2); break;
+                case 5: result = derivativeOnXi == DerivativeOnXi.DerivativeOnXi1 ? -xi1 * (1 + xi2) : 1.0 / 2 * (1 - Math.Pow(xi1, 2)); break;
+                case 6: result = derivativeOnXi == DerivativeOnXi.DerivativeOnXi1 ? 1.0 / 4 * (1 + xi2) * (2 * xi1 - xi2) : 1.0 / 4 * (1 - xi1) * (2 * xi2 - xi1); break;
+                case 7: result = derivativeOnXi == DerivativeOnXi.DerivativeOnXi1 ? 1.0 / 2 * (Math.Pow(xi2, 2) - 1) : xi2 * (xi1 - 1); break;
+            }
+            return result;
+        }
+
+        public double GetJacobian(int finiteElementIndex, double xi1, double xi2)
+        {
+            // Jacobian - Jacobi matrix determinant
+            double sum = 0;
+            for (int i = 0; i < SpecialData.NODES_NUMBER_IN_FINITE_ELEMENT; ++i)
+            {
+                for (int j = 0; j < SpecialData.NODES_NUMBER_IN_FINITE_ELEMENT; ++j)
+                {
+                    if (i != j)
+                    {
+                        sum += DerivativeOfFiOnXi(i, xi1, xi2, DerivativeOnXi.DerivativeOnXi1) * DerivativeOfFiOnXi(j, xi1, xi2, DerivativeOnXi.DerivativeOnXi2)
+                            * (NodesMatrix[(int)ConnectivityMatrix[finiteElementIndex, i]].X * NodesMatrix[(int)ConnectivityMatrix[finiteElementIndex, j]].Y
+                            - NodesMatrix[(int)ConnectivityMatrix[finiteElementIndex, j]].X * NodesMatrix[(int)ConnectivityMatrix[finiteElementIndex, i]].Y);
+                    }
+                }
+            }
+            return sum;
+        }
+
+        public Matrix GetJacobiInverseMatrix(int finiteElementIndex, double xi1, double xi2)
+        {
+            int twoDimension = 2;
+            Matrix result = new Matrix(twoDimension, twoDimension);
+            for (int i = 0; i < SpecialData.NODES_NUMBER_IN_FINITE_ELEMENT; ++i)
+            {
+                double derivativeOfFiOnXi1 = DerivativeOfFiOnXi(i, xi1, xi2, DerivativeOnXi.DerivativeOnXi1);
+                double derivativeOfFiOnXi2 = DerivativeOfFiOnXi(i, xi1, xi2, DerivativeOnXi.DerivativeOnXi2);
+
+                Coordinate2D node = new Coordinate2D
+                {
+                    X = NodesMatrix[(int)ConnectivityMatrix[finiteElementIndex, i]].X,
+                    Y = NodesMatrix[(int)ConnectivityMatrix[finiteElementIndex, i]].Y
+                };
+
+                Matrix nextMatrix = new Matrix(twoDimension, twoDimension);
+
+                nextMatrix[0, 0] = derivativeOfFiOnXi2 * node.Y;
+                nextMatrix[0, 1] = -derivativeOfFiOnXi1 * node.Y;
+                nextMatrix[1, 0] = -derivativeOfFiOnXi2 * node.X;
+                nextMatrix[1, 1] = derivativeOfFiOnXi1 * node.X;
+
+                result += nextMatrix;
+            }
+
+            double reverseJacobian = Math.Pow(GetJacobian(finiteElementIndex, xi1, xi2), -1);
+
+            return result * reverseJacobian;
+        }
+
+        public Matrix DerivativeOfFiOnAlpha(int finiteElementIndex, int nodeIndex, double xi1, double xi2)
+        {
+            Matrix derivativesOfFiOnXi1And2 = new Matrix(2, 1);
+            derivativesOfFiOnXi1And2[0, 0] = DerivativeOfFiOnXi(nodeIndex, xi1, xi2, DerivativeOnXi.DerivativeOnXi1);
+            derivativesOfFiOnXi1And2[1, 0] = DerivativeOfFiOnXi(nodeIndex, xi1, xi2, DerivativeOnXi.DerivativeOnXi2);
+
+            return GetJacobiInverseMatrix(finiteElementIndex, xi1, xi2) * derivativesOfFiOnXi1And2;
         }
 
         public Matrix CreateMaterialElasticCharacteristicsMatrixBWithE()
@@ -239,7 +332,7 @@ namespace FiniteElementMethod
             return Cl;
         }
 
-        public Matrix CreateGlobalMatrixForGaussNodeIndex(int finiteElementIndex, int gaussNodeIndex)
+        public Matrix[,] CreateGlobalMatrixForGaussNodeIndex(int finiteElementIndex, int gaussNodeIndex)
         {
             Matrix BE = CreateMaterialElasticCharacteristicsMatrixBWithE();
 
@@ -251,143 +344,147 @@ namespace FiniteElementMethod
             }
 
             // 8*8 of 6*6 matrices
-            Matrix[,] matricesForGlobalMatrixForGaussNode = new Matrix[8, 8];
-            for (int i = 0; i < matricesForGlobalMatrixForGaussNode.GetLength(0); ++i)
+            Matrix[,] globalMatrixForGaussNode = new Matrix[8, 8];
+            for (int i = 0; i < globalMatrixForGaussNode.GetLength(0); ++i)
             {
-                for (int j = 0; j < matricesForGlobalMatrixForGaussNode.GetLength(1); ++j)
+                for (int j = 0; j < globalMatrixForGaussNode.GetLength(1); ++j)
                 {
                     // 6*6
-                    matricesForGlobalMatrixForGaussNode[i, j] = Cl[i].GetTransposeMatrix() * BE * Cl[j];
-                }
-            }
-
-            // expand to 48*48 matrix
-            Matrix globalMatrixForGaussNode = new Matrix(48, 48);
-            for (int i = 0; i < 8; ++i)
-            {
-                for (int j = 0; j < 8; ++j)
-                {
-                    for (int k1 = 0; k1 < 6; ++k1)
-                    {
-                        for (int k2 = 0; k2 < 6; ++k2)
-                        {
-                            globalMatrixForGaussNode[i * 6 + k1, j * 6 + k2] = matricesForGlobalMatrixForGaussNode[i, j][k1, k2];
-                        }
-                    }
+                    globalMatrixForGaussNode[i, j] = Cl[i].GetTransposeMatrix() * BE * Cl[j];
                 }
             }
 
             return globalMatrixForGaussNode;
         }
 
-        public Matrix CreateGlobalMatrix(int finiteElementIndex)
+        public Matrix[,] CreateGlobalMatrixForFiniteElement(int finiteElementIndex)
         {
             double R = shellConfig.R;
 
             double[] gaussWeights = SpecialData.GaussWeights();
             double[,] gaussNodes = SpecialData.GaussNodeMatrix();
 
-            Matrix globalMatrix = new Matrix(48, 48);
+            Matrix[,] globalMatrix = new Matrix[8, 8];
+            for (int i = 0; i < globalMatrix.GetLength(0); ++i)
+            {
+                for (int j = 0; j < globalMatrix.GetLength(1); ++j)
+                {
+                    globalMatrix[i, j] = new Matrix(6, 6);
+                }
+            }
+
             for (int gaussNodeIndex = 0; gaussNodeIndex < gaussNodes.GetLength(0); ++gaussNodeIndex) // 9
             {
                 double detJ = GetJacobian(finiteElementIndex, gaussNodes[gaussNodeIndex, 0], gaussNodes[gaussNodeIndex, 1]);
                 double M = gaussWeights[gaussNodeIndex / 3] * gaussWeights[gaussNodeIndex % 3] * detJ * R;
 
-                globalMatrix += CreateGlobalMatrixForGaussNodeIndex(finiteElementIndex, gaussNodeIndex) * M;
+                Matrix[,] matrixOnGaussNode = CreateGlobalMatrixForGaussNodeIndex(finiteElementIndex, gaussNodeIndex);
+
+                for (int i = 0; i < globalMatrix.GetLength(0); ++i)
+                {
+                    for (int j = 0; j < globalMatrix.GetLength(1); ++j)
+                    {
+                        globalMatrix[i, j] += matrixOnGaussNode[i, j] * M;
+                    }
+                }
             }
             return globalMatrix;
         }
 
-        public double BasicFunctionsFi(int nodeIndex, double xi1, double xi2)
+        public bool[] GetUnknownVectorComponent(NodeSide nodeSide)
         {
-            double result = 0;
-            switch (nodeIndex)
+            //    u2 v2
+            //    ______
+            // u1|      |u3
+            // v1|______|v3
+            //    u2  v2
+
+            switch (nodeSide)
             {
-                case 0: result = -1.0 / 4 * (1 - xi1) * (1 - xi2) * (1 + xi1 + xi2); break;
-                case 1: result = 1.0 / 2 * (1 - Math.Pow(xi1, 2)) * (1 - xi2);       break;
-                case 2: result = -1.0 / 4 * (1 + xi1) * (1 - xi2) * (1 - xi1 + xi2); break;
-                case 3: result = 1.0 / 2 * (1 - Math.Pow(xi2, 2)) * (1 + xi1);       break;
-                case 4: result = -1.0 / 4 * (1 + xi1) * (1 + xi2) * (1 - xi1 - xi2); break;
-                case 5: result = 1.0 / 2 * (1 - Math.Pow(xi1, 2)) * (1 + xi2);       break;
-                case 6: result = -1.0 / 4 * (1 - xi1) * (1 + xi2) * (1 + xi1 - xi2); break;
-                case 7: result = 1.0 / 2 * (1 - Math.Pow(xi2, 2)) * (1 - xi1);       break;
+                // In U = (u1, u2, u3, v1, v2, v3) determines which components are unknown depending on node side.
+                case NodeSide.Left: return new bool[6] { true, false, false, true, false, false };
+                case NodeSide.LeftTop: return new bool[6] { true, true, false, true, true, false };
+                case NodeSide.Top: return new bool[6] { false, true, false, false, true, false };
+                case NodeSide.RightTop: return new bool[6] { false, true, true, false, true, true };
+                case NodeSide.Right: return new bool[6] { false, false, true, false, false, true };
+                case NodeSide.RightBottom: return new bool[6] { false, true, true, false, true, true };
+                case NodeSide.Bottom: return new bool[6] { false, true, false, false, true, false };
+                case NodeSide.LeftBottom: return new bool[6] { true, true, false, true, true, false };
+
+                default: throw new ArgumentException("Wrong node side.");
             }
-            return result;
         }
 
-        public double DerivativeOfFiOnXi(int nodeIndex, double xi1, double xi2, DerivativeOnXi derivativeOnXi)
+        public void SetUVComponent(Matrix nodeMatrix, NodeSide nodeSide)
         {
-            double result = 0;
-            switch (nodeIndex)
-            {
-                case 0: result = derivativeOnXi == DerivativeOnXi.DerivativeOnXi1 ? 1.0 / 4 * (1 - xi2) * (2 * xi1 + xi2) : 1.0 / 4 * (1 - xi1) * (xi1 + 2 * xi2); break;
-                case 1: result = derivativeOnXi == DerivativeOnXi.DerivativeOnXi1 ? xi1 * (xi2 - 1)                       : 1.0 / 2 * (Math.Pow(xi1, 2) - 1); break;
-                case 2: result = derivativeOnXi == DerivativeOnXi.DerivativeOnXi1 ? 1.0 / 4 * (1 - xi2) * (2 * xi1 - xi2) : 1.0 / 4 * (1 + xi1) * (2 * xi2 - xi1); break;
-                case 3: result = derivativeOnXi == DerivativeOnXi.DerivativeOnXi1 ? 1.0 / 2 * (1 - Math.Pow(xi2, 2))      : -xi2 * (1 + xi1); break;
-                case 4: result = derivativeOnXi == DerivativeOnXi.DerivativeOnXi1 ? 1.0 / 4 * (1 + xi2) * (2 * xi1 + xi2) : 1.0 / 4 * (1 + xi1) * (xi1 + 2 * xi2); break;
-                case 5: result = derivativeOnXi == DerivativeOnXi.DerivativeOnXi1 ? -xi1 * (1 + xi2)                      : 1.0 / 2 * (1 - Math.Pow(xi1, 2)); break;
-                case 6: result = derivativeOnXi == DerivativeOnXi.DerivativeOnXi1 ? 1.0 / 4 * (1 + xi2) * (2 * xi1 - xi2) : 1.0 / 4 * (1 - xi1) * (2 * xi2 - xi1); break;
-                case 7: result = derivativeOnXi == DerivativeOnXi.DerivativeOnXi1 ? 1.0 / 2 * (Math.Pow(xi2, 2) - 1)      : xi2 * (xi1 - 1); break;
-            }
-            return result;
-        }
+            bool[] indicesOfValueToRaise = GetUnknownVectorComponent(nodeSide);
 
-        public double GetJacobian(int finiteElementIndex, double xi1, double xi2)
-        {
-            // Jacobian - Jacobi matrix determinant
-            double sum = 0;
-            for (int i = 0; i < SpecialData.NODES_NUMBER_IN_FINITE_ELEMENT; ++i) 
+            for (int i = 0; i < nodeMatrix.RowsAmount; ++i)// 6*6
             {
-                for (int j = 0; j < SpecialData.NODES_NUMBER_IN_FINITE_ELEMENT; ++j) 
+                if (indicesOfValueToRaise[i])
                 {
-                    if (i != j) 
+                    nodeMatrix[i, i] = double.MaxValue;
+                }
+            }
+        }
+
+        public Matrix[,] CreateUVComponentGlobalMatrixForFiniteElement(int finiteElementIndex)
+        {
+            Matrix[,] globalMatrixForFiniteElement = CreateGlobalMatrixForFiniteElement(finiteElementIndex);
+
+            for (int nodeMatrixIndex = 0; nodeMatrixIndex < SpecialData.NODES_NUMBER_IN_FINITE_ELEMENT; ++nodeMatrixIndex) 
+            {
+                NodeSide nodeSide = (NodeSide)BoundaryConditionMatrix[(int)ConnectivityMatrix[finiteElementIndex, nodeMatrixIndex]];
+
+                SetUVComponent(globalMatrixForFiniteElement[nodeMatrixIndex, nodeMatrixIndex], nodeSide);
+            }
+            return globalMatrixForFiniteElement;
+        }
+
+        public Matrix[][,] CreateGlobalMatricesForFiniteElements()
+        {
+            int finiteElementAmount = coordinateSystemConfig.N * coordinateSystemConfig.M;
+
+            Matrix[][,] globalMatricesForFiniteElements = new Matrix[finiteElementAmount][,];
+            for (int finiteElementIndex = 0; finiteElementIndex < finiteElementAmount; ++finiteElementIndex)
+            {
+                globalMatricesForFiniteElements[finiteElementIndex] = CreateUVComponentGlobalMatrixForFiniteElement(finiteElementIndex);
+            }
+            return globalMatricesForFiniteElements;
+        }
+
+        public Matrix[,] CreateGlobalMatrix()
+        {
+            int finiteElementAmount = coordinateSystemConfig.N * coordinateSystemConfig.M;
+            int nodesAmount = (coordinateSystemConfig.N + 1) * (2 * coordinateSystemConfig.M + 1) + coordinateSystemConfig.N * (coordinateSystemConfig.M + 1);
+
+            // GLOBAL MATRIX
+            Matrix[,] globalMatrix = new Matrix[nodesAmount, nodesAmount];
+            for (int i = 0; i < nodesAmount; ++i)
+            {
+                for (int j = 0; j < nodesAmount; ++j)
+                {
+                    globalMatrix[i, j] = new Matrix(6, 6);
+                }
+            }
+
+            Matrix[][,] globalMatricesForFiniteElements = CreateGlobalMatricesForFiniteElements();
+
+            for (int finiteElementIndex = 0; finiteElementIndex < finiteElementAmount; ++finiteElementIndex)
+            {
+                for (int iNodeIndex = 0; iNodeIndex < SpecialData.NODES_NUMBER_IN_FINITE_ELEMENT; ++iNodeIndex) 
+                {
+                    for (int jNodeIndex = 0; jNodeIndex < SpecialData.NODES_NUMBER_IN_FINITE_ELEMENT; ++jNodeIndex) 
                     {
-                        sum += DerivativeOfFiOnXi(i, xi1, xi2, DerivativeOnXi.DerivativeOnXi1) * DerivativeOfFiOnXi(j, xi1, xi2, DerivativeOnXi.DerivativeOnXi2)
-                            * (NodesMatrix[(int)ConnectivityMatrix[finiteElementIndex, i]].X * NodesMatrix[(int)ConnectivityMatrix[finiteElementIndex, j]].Y
-                            - NodesMatrix[(int)ConnectivityMatrix[finiteElementIndex, j]].X * NodesMatrix[(int)ConnectivityMatrix[finiteElementIndex, i]].Y);
+                        int shiftI = (int)ConnectivityMatrix[finiteElementIndex, iNodeIndex];
+                        int shiftJ = (int)ConnectivityMatrix[finiteElementIndex, jNodeIndex];
+
+                        globalMatrix[shiftI, shiftJ] = globalMatricesForFiniteElements[finiteElementIndex][iNodeIndex, jNodeIndex];
                     }
                 }
             }
-            return sum;
-        }
 
-        public Matrix GetJacobiInverseMatrix(int finiteElementIndex, double xi1, double xi2)
-        {
-            int twoDimension = 2;
-            Matrix result = new Matrix(twoDimension, twoDimension);
-            for (int i = 0; i < SpecialData.NODES_NUMBER_IN_FINITE_ELEMENT; ++i)
-            {
-                double derivativeOfFiOnXi1 = DerivativeOfFiOnXi(i, xi1, xi2, DerivativeOnXi.DerivativeOnXi1);
-                double derivativeOfFiOnXi2 = DerivativeOfFiOnXi(i, xi1, xi2, DerivativeOnXi.DerivativeOnXi2);
-
-                Coordinate2D node = new Coordinate2D
-                {
-                    X = NodesMatrix[(int)ConnectivityMatrix[finiteElementIndex, i]].X,
-                    Y = NodesMatrix[(int)ConnectivityMatrix[finiteElementIndex, i]].Y
-                };
-
-                Matrix nextMatrix = new Matrix(twoDimension, twoDimension);
-
-                nextMatrix[0, 0] = derivativeOfFiOnXi2 * node.Y;
-                nextMatrix[0, 1] = -derivativeOfFiOnXi1 * node.Y;
-                nextMatrix[1, 0] = -derivativeOfFiOnXi2 * node.X;
-                nextMatrix[1, 1] = derivativeOfFiOnXi1 * node.X;
-
-                result += nextMatrix;
-            }
-
-            double reverseJacobian = Math.Pow(GetJacobian(finiteElementIndex, xi1, xi2), -1);
-
-            return result * reverseJacobian;
-        }
-
-        public Matrix DerivativeOfFiOnAlpha(int finiteElementIndex, int nodeIndex, double xi1, double xi2)
-        {
-            Matrix derivativesOfFiOnXi1And2 = new Matrix(2, 1);
-            derivativesOfFiOnXi1And2[0, 0] = DerivativeOfFiOnXi(nodeIndex, xi1, xi2, DerivativeOnXi.DerivativeOnXi1);
-            derivativesOfFiOnXi1And2[1, 0] = DerivativeOfFiOnXi(nodeIndex, xi1, xi2, DerivativeOnXi.DerivativeOnXi2);
-
-            return GetJacobiInverseMatrix(finiteElementIndex, xi1, xi2) * derivativesOfFiOnXi1And2;
+            return globalMatrix;
         }
     }
 }
