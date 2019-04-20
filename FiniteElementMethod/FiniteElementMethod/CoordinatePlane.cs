@@ -402,6 +402,7 @@ namespace FiniteElementMethod
             switch (nodeSide)
             {
                 // In U = (u1, u2, u3, v1, v2, v3) determines which components are unknown depending on node side.
+                case NodeSide.Middle: return new bool[6] { false, false, false, false, false, false };
                 case NodeSide.Left: return new bool[6] { true, false, false, true, false, false };
                 case NodeSide.LeftTop: return new bool[6] { true, true, false, true, true, false };
                 case NodeSide.Top: return new bool[6] { false, true, false, false, true, false };
@@ -479,7 +480,7 @@ namespace FiniteElementMethod
                         int shiftI = (int)ConnectivityMatrix[finiteElementIndex, iNodeIndex];
                         int shiftJ = (int)ConnectivityMatrix[finiteElementIndex, jNodeIndex];
 
-                        globalMatrix[shiftI, shiftJ] = globalMatricesForFiniteElements[finiteElementIndex][iNodeIndex, jNodeIndex];
+                        globalMatrix[shiftI, shiftJ] += globalMatricesForFiniteElements[finiteElementIndex][iNodeIndex, jNodeIndex];
                     }
                 }
             }

@@ -35,7 +35,25 @@ namespace MainProgram
 
             Console.WriteLine();
 
-            //coordinatePlane.CreateGlobalMatrix(0).Show();
+            using (StreamWriter streamWriter = new StreamWriter("../../Global matrix.txt"))
+            {
+                Matrix[,] globalMatrix = coordinatePlane.CreateGlobalMatrix();
+
+                for (int i = 0; i < globalMatrix.GetLength(0); ++i) 
+                {
+                    for (int j = 0; j < 6; ++j) 
+                    {
+                        for (int k = 0; k < globalMatrix.GetLength(1); ++k)
+                        {
+                            for (int m = 0; m < 6; ++m) 
+                            {
+                                streamWriter.Write($"{globalMatrix[i, k][j, m],-25} ");
+                            }
+                        }
+                        streamWriter.WriteLine();
+                    }
+                }
+            }
 
 
             Console.ReadLine();
