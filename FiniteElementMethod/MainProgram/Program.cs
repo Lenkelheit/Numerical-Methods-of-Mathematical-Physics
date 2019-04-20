@@ -35,41 +35,26 @@ namespace MainProgram
 
             Console.WriteLine();
 
-            //coordinatePlane.CreateDifferentialOperatorMatrixCl(0, 1, 0).Show();
-
-            Matrix matrix = coordinatePlane.CreateGlobalMatrix(0);//.Show();
-
-            Matrix fromFile = new Matrix(48, 48);
-
-            string[] data = null;
-            using (StreamReader streamReader = new StreamReader(@"..\..\..\K48.txt")) 
+            using (StreamWriter streamWriter = new StreamWriter("../../Global matrix.txt"))
             {
-                data = streamReader.ReadToEnd().Split(new char[] { ' ','\n','\r' }, StringSplitOptions.RemoveEmptyEntries);
-            }
+                Matrix[,] globalMatrix = coordinatePlane.CreateGlobalMatrix();
 
-            int k = 0;
-            for (int i = 0; i < 48; i++)
-            {
-                for (int j = 0; j < 48; j++)
+                for (int i = 0; i < globalMatrix.GetLength(0); ++i) 
                 {
-                    fromFile[i, j] = double.Parse(data[k++], System.Globalization.NumberStyles.Float, CultureInfo.InvariantCulture);
-                }
-            }
-
-            bool isEqual = true;
-            for (int i = 0; i < 48; i++)
-            {
-                for (int j = 0; j < 48; j++)
-                {
-                    if (Math.Round(matrix[i, j]) != fromFile[i, j]) 
+                    for (int j = 0; j < 6; ++j) 
                     {
-                        isEqual = false;
-                        Console.WriteLine($"{i} {j}: {matrix[i, j]} {fromFile[i, j]}");
+                        for (int k = 0; k < globalMatrix.GetLength(1); ++k)
+                        {
+                            for (int m = 0; m < 6; ++m) 
+                            {
+                                streamWriter.Write($"{globalMatrix[i, k][j, m],-25} ");
+                            }
+                        }
+                        streamWriter.WriteLine();
                     }
                 }
             }
 
-            Console.WriteLine(isEqual);
 
             Console.ReadLine();
         }
