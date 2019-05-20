@@ -1,8 +1,5 @@
 ﻿using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
+
 using FiniteElementMethod.Matrices;
 using FiniteElementMethod.Additions;
 
@@ -19,6 +16,11 @@ namespace FiniteElementMethod
         private CoordinateSystemConfig coordinateSystemConfig;
         private CylindricalShellConfig shellConfig;
 
+        private Matrix loadVector;
+
+        private readonly double MATRIX_NODE_BORDER_VALUE = 1e50;
+        private readonly double VECTOR_NODE_BORDER_VALUE = 0;
+
         // PROPERTIES
         #region MATRICES
         public NodesMatrix NodesMatrix { get; private set; }
@@ -34,6 +36,8 @@ namespace FiniteElementMethod
 
             this.coordinateSystemConfig = coordinateSystemConfig;
             this.shellConfig = shellConfig;
+
+            loadVector = CreateLoadVector();
 
             SplitCoordinatePlane(coordinateSystemConfig.N, coordinateSystemConfig.M);
         }
@@ -424,7 +428,7 @@ namespace FiniteElementMethod
             {
                 if (indicesOfValueToRaise[i])
                 {
-                    nodeMatrix[i, i] = double.MaxValue;
+                    nodeMatrix[i, i] = MATRIX_NODE_BORDER_VALUE;
                 }
             }
         }
@@ -486,6 +490,120 @@ namespace FiniteElementMethod
             }
 
             return globalMatrix;
+        }
+
+
+        // <-------------------->
+        // Belongs to R vector from right side of equation K*q = R
+        // <-------------------->
+        public Matrix CreateLoadVector()
+        {
+            return new Matrix(6, 1) { [0, 0] = 0, [1, 0] = 0, [2, 0] = -1, [3, 0] = 0, [4, 0] = 0, [5, 0] = 0 };
+        }
+
+        // matrix N
+        public Matrix[] CreateGlobalVectorForGaussNodeIndex(int finiteElementIndex, int gaussNodeIndex)
+        {
+            double[,] gaussNodes = SpecialData.GaussNodeMatrix();
+
+            // Vector 1*8 of 6*6 phi matrices
+            Matrix[] vectorForGaussNode = new Matrix[SpecialData.NODES_NUMBER_IN_FINITE_ELEMENT];
+            for (int nodeIndex = 0; nodeIndex < SpecialData.NODES_NUMBER_IN_FINITE_ELEMENT; ++nodeIndex)
+            {
+                vectorForGaussNode[nodeIndex] = new Matrix(6, 6);
+
+                // diagonal moving on phi
+                double phi = BasicFunctionsFi(nodeIndex, gaussNodes[gaussNodeIndex, 0], gaussNodes[gaussNodeIndex, 1]);
+                for (int d = 0; d < 6; ++d)
+                {
+                    vectorForGaussNode[nodeIndex][d, d] = phi;
+                }
+            }
+
+            return vectorForGaussNode;
+        }
+
+        public Matrix[] CreateGlobalVectorForFiniteElement(int finiteElementIndex)
+        {
+            double R = shellConfig.R;
+
+            double[] gaussWeights = SpecialData.GaussWeights();
+            double[,] gaussNodes = SpecialData.GaussNodeMatrix();
+
+            Matrix[] vectorR = new Matrix[SpecialData.NODES_NUMBER_IN_FINITE_ELEMENT];
+            for (int i = 0; i < vectorR.Length; ++i)
+            {
+                vectorR[i] = new Matrix(6, 1);
+            }
+
+            // sum up for each gauss' node
+            for (int gaussNodeIndex = 0; gaussNodeIndex < gaussNodes.GetLength(0); ++gaussNodeIndex) // 9
+            {
+                double detJ = GetJacobian(finiteElementIndex, gaussNodes[gaussNodeIndex, 0], gaussNodes[gaussNodeIndex, 1]);
+                double M = gaussWeights[gaussNodeIndex / 3] * gaussWeights[gaussNodeIndex % 3] * detJ * R;
+
+                Matrix[] N = CreateGlobalVectorForGaussNodeIndex(finiteElementIndex, gaussNodeIndex);
+
+                for (int nodeIndex = 0; nodeIndex < SpecialData.NODES_NUMBER_IN_FINITE_ELEMENT; ++nodeIndex)
+                {
+                    vectorR[nodeIndex] += N[nodeIndex] * loadVector * M;
+                }
+            }
+
+            return vectorR;
+        }
+
+        public void SetVectorUV(Matrix nodeVector, NodeSide nodeSide)
+        {
+            bool[] indicesOfNodeSide = GetUnknownVectorComponent(nodeSide);
+
+            for (int k = 0; k < nodeVector.RowsAmount; ++k)// 6*1
+            {
+                if (indicesOfNodeSide[k])
+                {
+                    nodeVector[k, 0] = VECTOR_NODE_BORDER_VALUE;
+                }
+            }
+        }
+
+        public Matrix[] CreateUVGlobalVectorForFiniteElement(int finiteElementIndex)
+        {
+            Matrix[] globalVectorForfiniteElement = CreateGlobalVectorForFiniteElement(finiteElementIndex);
+
+            for (int nodeIndex = 0; nodeIndex < SpecialData.NODES_NUMBER_IN_FINITE_ELEMENT; ++nodeIndex)
+            {
+                NodeSide nodeSide = (NodeSide)BoundaryConditionMatrix[(int)ConnectivityMatrix[finiteElementIndex, nodeIndex]];
+
+                SetVectorUV(globalVectorForfiniteElement[nodeIndex], nodeSide);
+            }
+            return globalVectorForfiniteElement;
+        }
+
+        public Matrix[] CreateGlobalVector()
+        {
+            int finiteElementAmount = coordinateSystemConfig.N * coordinateSystemConfig.M;
+            int nodesAmount = (coordinateSystemConfig.N + 1) * (2 * coordinateSystemConfig.M + 1) + coordinateSystemConfig.N * (coordinateSystemConfig.M + 1);
+
+            // SUPER GLOBAL
+            Matrix[] globalVector = new Matrix[nodesAmount];
+            for (int i = 0; i < nodesAmount; ++i)
+            {
+                globalVector[i] = new Matrix(6, 1);
+            }
+
+            // building
+            for (int finiteElementIndex = 0; finiteElementIndex < finiteElementAmount; ++finiteElementIndex) 
+            {
+                Matrix[] vectorR = CreateUVGlobalVectorForFiniteElement(finiteElementIndex);
+                for (int nodeIndex = 0; nodeIndex < SpecialData.NODES_NUMBER_IN_FINITE_ELEMENT; ++nodeIndex) 
+                {
+                    int shift = (int)ConnectivityMatrix[finiteElementIndex, nodeIndex];
+
+                    globalVector[shift] += vectorR[nodeIndex];
+                }
+            }
+
+            return globalVector;
         }
     }
 }

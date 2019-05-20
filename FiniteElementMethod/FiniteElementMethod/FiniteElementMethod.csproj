@@ -41,6 +41,7 @@
     <Reference Include="System.Xml" />
   </ItemGroup>
   <ItemGroup>
+    <Compile Include="Additions\GaussSole.cs" />
     <Compile Include="Additions\NodeSide.cs" />
     <Compile Include="Additions\DerivativeOnXi.cs" />
     <Compile Include="CoordinateSystemConfig.cs" />
