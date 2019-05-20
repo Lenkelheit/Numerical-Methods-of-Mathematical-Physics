@@ -1,8 +1,5 @@
 ﻿using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
+using System.IO;
 
 namespace FiniteElementMethod.Matrices
 {
@@ -14,6 +11,8 @@ namespace FiniteElementMethod.Matrices
         // PROPERTIES
         public int RowsAmount { get; }
         public int ColumnsAmount { get; }
+
+        public bool IsVector => ColumnsAmount == 1 || RowsAmount == 1;
 
         // CONSTRUCTORS
         public Matrix(int n, int m)
@@ -37,6 +36,24 @@ namespace FiniteElementMethod.Matrices
         }
 
         // METHODS
+        public static void Write(Matrix matrix, string filePath)
+        {
+            using (StreamWriter writer = new StreamWriter(filePath))
+            {
+                writer.WriteLine(matrix.RowsAmount);
+                writer.WriteLine(matrix.ColumnsAmount);
+
+                for (int i = 0; i < matrix.RowsAmount; ++i)
+                {
+                    for (int j = 0; j < matrix.ColumnsAmount; ++j)
+                    {
+                        writer.Write(matrix[i, j].ToString().PadRight(25));
+                    }
+                    writer.WriteLine();
+                }
+            }
+        }
+
         public void Show()
         {
             for (int i = 0; i < RowsAmount; ++i) 
